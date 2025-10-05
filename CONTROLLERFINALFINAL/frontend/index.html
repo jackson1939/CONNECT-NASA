@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔥 Monitoreo de Incendios FIRMS - Bolivia</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+  <style>
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+    }
+    
+    body { 
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      overflow: hidden;
+    }
+    
+    #container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    
+    /* Header */
+    #header {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      padding: 15px 25px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      border-bottom: 2px solid #334155;
+      z-index: 1000;
+    }
+    
+    #header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #f59e0b, #dc2626);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    
+    /* Controls */
+    #controls { 
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+    
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .control-group label {
+      color: #94a3b8;
+      font-weight: 500;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    
+    .control-group select, 
+    .control-group input[type="range"] {
+      padding: 8px 12px;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      background: #1e293b;
+      color: #e2e8f0;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .control-group select:hover,
+    .control-group select:focus {
+      border-color: #f59e0b;
+      outline: none;
+      background: #293548;
+    }
+    
+    #timeSlider {
+      width: 150px;
+      height: 6px;
+      background: #334155;
+      border-radius: 3px;
+      outline: none;
+      appearance: none;
+    }
+    
+    #timeSlider::-webkit-slider-thumb {
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      background: #f59e0b;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.5);
+    }
+    
+    #timeSlider::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      background: #f59e0b;
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+    }
+    
+    #timeline {
+      color: #f59e0b;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 4px 10px;
+      background: rgba(245, 158, 11, 0.1);
+      border-radius: 6px;
+      min-width: 60px;
+      text-align: center;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    
+    /* Buttons */
+    .btn {
+      padding: 8px 16px;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      background: #1e293b;
+      color: #e2e8f0;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .btn:hover:not(:disabled) {
+      background: #293548;
+      border-color: #f59e0b;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+    }
+    
+    .btn:active:not(:disabled) {
+      transform: translateY(0);
+    }
+    
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #f59e0b, #dc2626);
+      border: none;
+      color: white;
+    }
+    
+    .btn-primary:hover:not(:disabled) {
+      box-shadow: 0 4px 20px rgba(220, 38, 38, 0.4);
+    }
+    
+    /* Status */
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #94a3b8;
+      font-size: 13px;
+      padding: 6px 12px;
+      background: rgba(30, 41, 59, 0.6);
+      border-radius: 8px;
+      border: 1px solid #334155;
+      margin-left: auto;
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      animation: pulse 2s infinite;
+    }
+    
+    .status-dot.loading {
+      background: #f59e0b;
+    }
+    
+    .status-dot.error {
+      background: #ef4444;
+      animation: none;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.2); }
+    }
+    
+    /* Map Container */
+    #map-container {
+      flex: 1;
+      position: relative;
+    }
+    
+    #map { 
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Mejora visibilidad control de capas */
+    .leaflet-control-layers {
+      background: rgba(30,41,59,0.95) !important;
+      color: #e2e8f0 !important;
+      border: 1px solid #475569 !important;
+    }
+    .leaflet-control-layers label { color: #e2e8f0; }
+    .leaflet-control-layers-selector:checked + span { color: #f59e0b; font-weight: 700; }
+    .leaflet-control-layers-overlays input:checked + span::before,
+    .leaflet-control-layers-base input:checked + span::before { content: '● '; color: #f59e0b; }
+    
+    /* Leaflet customization */
+    .leaflet-control {
+      border: 1px solid #334155 !important;
+      background: #1e293b !important;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+    }
+    
+    .leaflet-control a {
+      background: #1e293b !important;
+      color: #e2e8f0 !important;
+      border-bottom: 1px solid #334155 !important;
+    }
+    
+    .leaflet-control a:hover {
+      background: #293548 !important;
+      color: #f59e0b !important;
+    }
+    
+    /* Legend */
+    .legend {
+      background: #1e293b;
+      padding: 15px;
+      line-height: 1.8;
+      color: #e2e8f0;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      font-size: 12px;
+      border: 1px solid #334155;
+      min-width: 180px;
+    }
+    
+    .legend h4 {
+      margin-bottom: 10px;
+      font-size: 14px;
+      color: #f59e0b;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 6px 0;
+    }
+    
+    .legend i {
+      width: 14px;
+      height: 14px;
+      display: inline-block;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.2);
+      flex-shrink: 0;
+    }
+    
+    /* Info Panel */
+    .info-panel {
+      background: #1e293b;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      font-size: 12px;
+      max-width: 280px;
+      border: 1px solid #334155;
+    }
+    
+    .info-panel h4 {
+      color: #f59e0b;
+      margin-bottom: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid #334155;
+    }
+    
+    .stat-row:last-child {
+      border-bottom: none;
+    }
+    
+    .stat-label {
+      color: #94a3b8;
+      font-size: 11px;
+    }
+    
+    .stat-value {
+      color: #e2e8f0;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    
+    .stat-value.high {
+      color: #ef4444;
+    }
+    
+    .stat-value.medium {
+      color: #f59e0b;
+    }
+    
+    .stat-value.low {
+      color: #22c55e;
+    }
+    
+    .tendencia {
+      margin-top: 10px;
+      padding: 8px;
+      background: rgba(245, 158, 11, 0.1);
+      border-radius: 6px;
+      font-size: 11px;
+    }
+    
+    .tendencia.aumentando {
+      background: rgba(239, 68, 68, 0.1);
+      border-left: 3px solid #ef4444;
+    }
+    
+    .tendencia.disminuyendo {
+      background: rgba(34, 197, 94, 0.1);
+      border-left: 3px solid #22c55e;
+    }
+    
+    /* Popup customization */
+    .leaflet-popup-content-wrapper {
+      background: #1e293b !important;
+      color: #e2e8f0 !important;
+      border-radius: 10px !important;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important;
+      border: 1px solid #334155 !important;
+    }
+    
+    .leaflet-popup-content {
+      margin: 15px !important;
+      font-size: 13px !important;
+      line-height: 1.6 !important;
+    }
+    
+    .leaflet-popup-tip {
+      background: #1e293b !important;
+      border: 1px solid #334155 !important;
+    }
+    
+    .popup-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f59e0b;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .popup-divider {
+      height: 1px;
+      background: #334155;
+      margin: 8px 0;
+    }
+    
+    .popup-row {
+      display: flex;
+      gap: 8px;
+      margin: 5px 0;
+    }
+    
+    .popup-label {
+      color: #94a3b8;
+      min-width: 100px;
+    }
+    
+    .popup-value {
+      color: #e2e8f0;
+      font-weight: 600;
+    }
+    
+    .severidad-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    
+    .severidad-muy_alta { background: #7f1d1d; color: white; }
+    .severidad-alta { background: #dc2626; color: white; }
+    .severidad-media { background: #f59e0b; color: white; }
+    .severidad-baja { background: #84cc16; color: #0f172a; }
+    
+    /* Notifications */
+    .notification {
+      position: fixed;
+      top: 90px;
+      right: 20px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      z-index: 10000;
+      min-width: 300px;
+      animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateX(400px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    .notification.success { border-left: 4px solid #22c55e; }
+    .notification.error { border-left: 4px solid #ef4444; }
+    .notification.warning { border-left: 4px solid #f59e0b; }
+    .notification.info { border-left: 4px solid #3b82f6; }
+    
+    /* Loader */
+    .loader {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.8);
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .loader.active {
+      display: flex;
+    }
+    
+    .loader-content {
+      text-align: center;
+    }
+    
+    .loader-spinner {
+      width: 60px;
+      height: 60px;
+      border: 4px solid #334155;
+      border-top: 4px solid #f59e0b;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px;
+    }
+    
+    .loader-text {
+      color: #94a3b8;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* Clusters */
+    .marker-cluster-small {
+      background-color: rgba(181, 226, 140, 0.6);
+    }
+    
+    .marker-cluster-small div {
+      background-color: rgba(110, 204, 57, 0.6);
+    }
+    
+    .marker-cluster-medium {
+      background-color: rgba(241, 211, 87, 0.6);
+    }
+    
+    .marker-cluster-medium div {
+      background-color: rgba(240, 194, 12, 0.6);
+    }
+    
+    .marker-cluster-large {
+      background-color: rgba(253, 156, 115, 0.6);
+    }
+    
+    .marker-cluster-large div {
+      background-color: rgba(241, 128, 23, 0.6);
+    }
+    
+    /* Export button */
+    .btn-export {
+      background: #1e40af;
+      border-color: #1e40af;
+    }
+    
+    .btn-export:hover:not(:disabled) {
+      background: #1e3a8a;
+      box-shadow: 0 4px 12px rgba(30, 64, 175, 0.4);
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      #controls {
+        gap: 10px;
+      }
+      
+      .control-group {
+        flex: 1 1 45%;
+      }
+      
+      .status-indicator {
+        flex: 1 1 100%;
+        margin-left: 0;
+      }
+      
+      #header h1 {
+        font-size: 18px;
+      }
+      
+      .info-panel {
+        max-width: 200px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="header">
+      <h1>🔥 Monitoreo de Incendios FIRMS - Bolivia</h1>
+      
+      <div id="controls">
+        <div class="control-group">
+          <label for="region">📍 Región:</label>
+          <select id="region">
+            <option value="bolivia" selected>Todo Bolivia</option>
+            <option value="santaCruz">Santa Cruz</option>
+            <option value="laPaz">La Paz</option>
+            <option value="beni">Beni</option>
+            <option value="pando">Pando</option>
+            <option value="tarija">Tarija</option>
+            <option value="cochabamba">Cochabamba</option>
+            <option value="oruro">Oruro</option>
+            <option value="potosi">Potosí</option>
+          </select>
+        </div>
+        
+        <div class="control-group">
+          <label for="days">📅 Período:</label>
+          <select id="days">
+            <option value="1">24 horas</option>
+            <option value="3" selected>3 días</option>
+            <option value="7">7 días</option>
+            <option value="10">10 días</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="source">🛰️ Satélite:</label>
+          <select id="source">
+            <option value="VIIRS_SNPP_NRT" selected>VIIRS SNPP</option>
+            <option value="VIIRS_NOAA20_NRT">VIIRS NOAA-20</option>
+            <option value="VIIRS_NOAA21_NRT">VIIRS NOAA-21</option>
+            <option value="MODIS_NRT">MODIS</option>
+            <option value="ALL">Todos</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="timeSlider">⏱️ Filtro:</label>
+          <input type="range" id="timeSlider" min="0" max="24" value="24"/>
+          <span id="timeline">Todas</span>
+        </div>
+        
+        <button class="btn btn-primary" onclick="cargarIncendios()">🔄 Actualizar</button>
+        <button class="btn" id="statsBtn" onclick="toggleStats()">📊 Stats</button>
+        <button class="btn btn-export" onclick="exportarDatos()">💾 Exportar</button>
+        
+        <div class="status-indicator">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="statusText">Iniciando...</span>
+        </div>
+      </div>
+    </div>
+    
+    <div id="map-container">
+      <div id="map"></div>
+      <canvas id="wind-canvas" style="position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;"></canvas>
+      <div id="wind-controls" style="position:absolute;left:20px;bottom:20px;display:flex;gap:8px;align-items:center;background:rgba(30,41,59,0.8);border:1px solid #334155;border-radius:8px;padding:6px 10px;z-index:1000;">
+        <button id="btnWindPlay" class="btn" style="padding:6px 10px;">▶️</button>
+        <span id="windTime" style="color:#f59e0b;font-weight:700;min-width:70px;text-align:center;">--:--</span>
+        <label style="color:#94a3b8;font-size:12px;display:flex;align-items:center;gap:6px;">
+          Vel:
+          <input type="range" id="windSpeed" min="0.5" max="3" step="0.5" value="1"/>
+        </label>
+        <label style="color:#94a3b8;font-size:12px;display:flex;align-items:center;gap:6px;">
+          Fuente:
+          <select id="windSource" style="background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:6px;padding:4px 6px;">
+            <option value="POWER">POWER</option>
+            <option value="MERRA2">MERRA-2</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  </div>
+  
+  <div class="loader" id="loader">
+    <div class="loader-content">
+      <div class="loader-spinner"></div>
+      <div class="loader-text">Cargando datos...</div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script>
+    const API_BASE = 'http://localhost:4000/api';  // ✅ URL completa
+    
+    const map = L.map('map', { 
+      center: [-17.8, -63.2], 
+      zoom: 6,
+      zoomControl: false,
+      preferCanvas: true
+    });
+    
+    L.control.zoom({ position: 'topright' }).addTo(map);
+    
+    const baseLayers = {
+      "🗺️ OpenStreetMap": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap',
+        maxZoom: 19
+      }),
+      "🛰️ Satélite": L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        { attribution: '© Esri', maxZoom: 19 }
+      ),
+      "🌙 Oscuro": L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+        { attribution: '© CARTO', maxZoom: 19 }
+      ),
+      "☀️ Claro": L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+        { attribution: '© CARTO', maxZoom: 19 }
+      )
+    };
+    
+    baseLayers["🌙 Oscuro"].addTo(map);
+    
+    let incendiosCargados = [];
+    let estadisticasGlobales = null;
+    
+    const markerClusterGroup = L.markerClusterGroup({
+      maxClusterRadius: 50,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+      iconCreateFunction: function(cluster) {
+        const count = cluster.getChildCount();
+        let size = 'small';
+        if (count > 50) size = 'large';
+        else if (count > 20) size = 'medium';
+        
+        return L.divIcon({
+          html: `<div><span>${count}</span></div>`,
+          className: `marker-cluster marker-cluster-${size}`,
+          iconSize: L.point(40, 40)
+        });
+      }
+    });
+    
+    // Capas de viento
+    let windLayer = L.layerGroup(); // POWER
+    let windM2Layer = L.layerGroup(); // MERRA-2
+    const overlays = { "🔥 Incendios": markerClusterGroup, "💨 Viento (10m) POWER": windLayer, "💨 Viento (MERRA-2)": windM2Layer };
+    L.control.layers(baseLayers, overlays, { position: 'topright', collapsed: false }).addTo(map);
+    markerClusterGroup.addTo(map);
+
+    function colorPorConfianza(conf) {
+      const c = Number(conf) || 0;
+      if (c >= 85) return "#7f1d1d";
+      if (c >= 70) return "#dc2626";
+      if (c >= 50) return "#f59e0b";
+      if (c >= 30) return "#fbbf24";
+      return "#84cc16";
+    }
+
+    // ================= Utilidades de viento =================
+    function speedDirFromUV(u, v) {
+      const uu = Number(u) || 0;
+      const vv = Number(v) || 0;
+      const speed = Math.hypot(uu, vv);
+      // dirección meteorológica (desde donde sopla), en grados [0,360)
+      let dir = Math.atan2(-uu, -vv) * 180 / Math.PI;
+      if (dir < 0) dir += 360;
+      return { speed, dir };
+    }
+
+    function radioPorConfianza(conf) {
+      const c = Number(conf) || 0;
+      return Math.max(5, Math.min(14, Math.round(5 + (c / 100) * 9)));
+    }
+    
+    function opacidadPorTiempo(timestamp) {
+      const ahora = Date.now();
+      const horasAtras = (ahora - timestamp) / (1000 * 60 * 60);
+      const dias = parseInt(document.getElementById("days").value);
+      const maxHoras = dias * 24;
+      return Math.max(0.4, 1 - (horasAtras / maxHoras) * 0.6);
+    }
+
+    function mostrarLoader(show = true) {
+      const loader = document.getElementById('loader');
+      const statusDot = document.getElementById('statusDot');
+      
+      if (show) {
+        loader.classList.add('active');
+        statusDot.classList.add('loading');
+      } else {
+        loader.classList.remove('active');
+        statusDot.classList.remove('loading');
+      }
+    }
+    
+    function actualizarEstado(texto, tipo = 'normal') {
+      const statusText = document.getElementById('statusText');
+      const statusDot = document.getElementById('statusDot');
+      
+      statusText.textContent = texto;
+      statusDot.className = 'status-dot';
+      
+      if (tipo === 'error') statusDot.classList.add('error');
+      else if (tipo === 'loading') statusDot.classList.add('loading');
+    }
+    
+    function mostrarNotificacion(mensaje, tipo = 'info') {
+      const notif = document.createElement('div');
+      notif.className = `notification ${tipo}`;
+      notif.textContent = mensaje;
+      document.body.appendChild(notif);
+      
+      setTimeout(() => {
+        notif.style.animation = 'slideIn 0.3s ease reverse';
+        setTimeout(() => notif.remove(), 300);
+      }, 3000);
+    }
+
+    // =================== Partículas de viento (POWER) ===================
+    const windCanvas = document.getElementById('wind-canvas');
+    const windCtx = windCanvas.getContext('2d');
+    let windParticles = [];
+    let windFrames = []; // frames temporales activos (POWER o MERRA-2)
+    let windFrameIdx = 0;
+    let windPlaying = false;
+    let windTimer = null;
+    let windPlaybackSpeed = 1; // factor 0.5 - 3
+    let windSource = 'POWER';
+
+    function resizeWindCanvas() {
+      const size = map.getSize();
+      windCanvas.width = size.x;
+      windCanvas.height = size.y;
+    }
+    map.on('resize moveend zoomend', resizeWindCanvas);
+    resizeWindCanvas();
+
+    function initParticles(count = 600) {
+      const bounds = map.getBounds();
+      windParticles = Array.from({ length: count }).map(() => ({
+        lat: bounds.getSouth() + Math.random() * (bounds.getNorth() - bounds.getSouth()),
+        lng: bounds.getWest() + Math.random() * (bounds.getEast() - bounds.getWest()),
+        life: Math.random() * 100
+      }));
+    }
+
+    function drawParticles(frame) {
+      windCtx.clearRect(0, 0, windCanvas.width, windCanvas.height);
+      windCtx.globalAlpha = 0.85;
+      windCtx.strokeStyle = windSource === 'MERRA2' ? '#22c55e' : '#38bdf8';
+      windCtx.lineWidth = 1;
+
+      windParticles.forEach(p => {
+        const pos = map.latLngToContainerPoint([p.lat, p.lng]);
+        // Vector local: usamos el vector del centro para simplificar (se puede interpolar)
+        const u = frame.u;
+        const v = frame.v;
+        const speed = Math.hypot(u, v);
+        const scale = 0.0025 * windPlaybackSpeed; // factor de desplazamiento
+        const dx = u * scale;
+        const dy = -v * scale; // invertir y para pantalla
+
+        windCtx.beginPath();
+        windCtx.moveTo(pos.x, pos.y);
+        windCtx.lineTo(pos.x + dx * 100, pos.y + dy * 100);
+        windCtx.stroke();
+
+        // actualizar partícula en coordenadas geográficas
+        const latlng = map.containerPointToLatLng([pos.x + dx * 100, pos.y + dy * 100]);
+        p.lat = latlng.lat;
+        p.lng = latlng.lng;
+        p.life -= 1;
+        if (p.life <= 0 || !map.getBounds().contains([p.lat, p.lng])) {
+          const b = map.getBounds();
+          p.lat = b.getSouth() + Math.random() * (b.getNorth() - b.getSouth());
+          p.lng = b.getWest() + Math.random() * (b.getEast() - b.getWest());
+          p.life = 100 + Math.random() * 100;
+        }
+      });
+    }
+
+    function windTick() {
+      if (!windPlaying || !windFrames.length) return;
+      const frame = windFrames[windFrameIdx];
+      drawParticles(frame);
+      windFrameIdx = (windFrameIdx + 1) % windFrames.length;
+      document.getElementById('windTime').textContent = frame.timestamp?.slice(-4) || `t${windFrameIdx}`;
+      windTimer = requestAnimationFrame(windTick);
+    }
+
+    function windPlay() {
+      if (!map.hasLayer(windLayer)) return; // solo si overlay activo
+      if (!windFrames.length) return;
+      windPlaying = true;
+      cancelAnimationFrame(windTimer);
+      windTimer = requestAnimationFrame(windTick);
+      document.getElementById('btnWindPlay').textContent = '⏸️';
+    }
+    function windPause() {
+      windPlaying = false;
+      cancelAnimationFrame(windTimer);
+      document.getElementById('btnWindPlay').textContent = '▶️';
+    }
+
+    document.getElementById('btnWindPlay').addEventListener('click', () => {
+      if (windPlaying) windPause(); else windPlay();
+    });
+    document.getElementById('windSpeed').addEventListener('input', (e) => {
+      windPlaybackSpeed = Number(e.target.value);
+    });
+    document.getElementById('windSource').addEventListener('change', (e) => {
+      windSource = e.target.value;
+      // reconstruir frames según fuente
+      if (windSource === 'POWER') {
+        actualizarViento();
+      } else {
+        actualizarVientoM2();
+      }
+    });
+
+    async function cargarIncendios() {
+      const days = document.getElementById("days").value;
+      const source = document.getElementById("source").value;
+      const region = document.getElementById("region").value;
+      
+      mostrarLoader(true);
+      actualizarEstado('Cargando...', 'loading');
+
+      try {
+        const url = `${API_BASE}/eventos?tipo=incendios&days=${days}&source=${source}&region=${region}`;
+        const res = await fetch(url);
+        
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
+        const data = await res.json();
+        console.log('Recibidos:', data.length);
+        
+        incendiosCargados = Array.isArray(data) ? data : [];
+        
+        if (incendiosCargados.length === 0) {
+          mostrarNotificacion('No se encontraron incendios activos', 'info');
+        } else {
+          mostrarNotificacion(`${incendiosCargados.length} focos detectados`, 'success');
+        }
+        
+        dibujarIncendios(incendiosCargados);
+        actualizarEstado(`${incendiosCargados.length} focos`, 'normal');
+        
+        if (incendiosCargados.length > 0) {
+          const bounds = markerClusterGroup.getBounds();
+          if (bounds.isValid()) {
+            map.fitBounds(bounds, { padding: [50, 50], maxZoom: 10 });
+          }
+        }
+        
+        await cargarEstadisticas();
+        
+      } catch (err) {
+        console.error('Error:', err);
+        actualizarEstado('Error de conexión', 'error');
+        mostrarNotificacion('Error al cargar datos', 'error');
+      } finally {
+        mostrarLoader(false);
+      }
+    }
+    
+    async function cargarEstadisticas() {
+      const days = document.getElementById("days").value;
+      const source = document.getElementById("source").value;
+      const region = document.getElementById("region").value;
+      
+      try {
+        const url = `${API_BASE}/estadisticas?days=${days}&source=${source}&region=${region}`;
+        const res = await fetch(url);
+        const stats = await res.json();
+        
+        estadisticasGlobales = stats;
+        actualizarPanelEstadisticas();
+        
+      } catch (err) {
+        console.error('Error stats:', err);
+      }
+    }
+
+    function dibujarIncendios(lista) {
+      markerClusterGroup.clearLayers();
+      
+      if (!lista || lista.length === 0) return;
+      
+      lista.forEach(ev => {
+        const lat = Number(ev.lat);
+        const lng = Number(ev.lng);
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        const conf = ev.confianza ?? 0;
+        const color = colorPorConfianza(conf);
+        const radius = radioPorConfianza(conf);
+        const opacity = opacidadPorTiempo(ev.timestamp);
+
+        const marker = L.circleMarker([lat, lng], {
+          radius,
+          color: color,
+          weight: 2,
+          fillColor: color,
+          fillOpacity: opacity
+        });
+
+        marker.bindPopup(crearPopupContent(ev, color), {
+          maxWidth: 350
+        });
+        
+        marker.on('mouseover', function() {
+          this.setStyle({ weight: 4, fillOpacity: 1, radius: radius + 2 });
+        });
+        
+        marker.on('mouseout', function() {
+          this.setStyle({ weight: 2, fillOpacity: opacity, radius: radius });
+        });
+
+        markerClusterGroup.addLayer(marker);
+      });
+      
+      console.log(`Dibujados: ${lista.length}`);
+    }
+
+    async function actualizarViento() {
+      windLayer.clearLayers();
+      if (!map.hasLayer(windLayer)) return; // solo dibujar si overlay activo
+
+      const center = map.getCenter();
+      const lat = center.lat.toFixed(4);
+      const lon = center.lng.toFixed(4);
+
+      try {
+        const url = `${API_BASE}/wind/power?lat=${lat}&lon=${lon}&mode=hourly&days=1`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!data?.series?.length) return;
+
+        const last = data.series[data.series.length - 1];
+        let speed = Number(last.ws);
+        let dir = Number(last.wd);
+        if (!Number.isFinite(speed) || speed <= 0) {
+          const calc = speedDirFromUV(last.u, last.v);
+          speed = calc.speed;
+          dir = Number.isFinite(dir) && dir > 0 ? dir : calc.dir;
+        }
+        const speedTxt = speed.toFixed(1);
+
+        const lengthKm = Math.min(50, Math.max(10, speed * 5));
+        const rad = (Math.PI / 180) * (90 - dir);
+        const dx = (lengthKm / 111) * Math.cos(rad);
+        const dy = (lengthKm / 111) * Math.sin(rad);
+
+        const start = [center.lat, center.lng];
+        const end = [center.lat + dy, center.lng + dx];
+
+        const line = L.polyline([start, end], { color: '#38bdf8', weight: 3, opacity: 0.8 });
+        const head = L.circleMarker(end, { radius: 4, color: '#38bdf8', fillColor: '#38bdf8', fillOpacity: 1 });
+        const label = L.marker(end, {
+          icon: L.divIcon({ className: '', html: `<div style="color:#38bdf8;font-weight:700;">${speedTxt} m/s</div>` })
+        });
+
+        windLayer.addLayer(line);
+        windLayer.addLayer(head);
+        windLayer.addLayer(label);
+
+        // preparar frames para animación a partir de toda la serie (POWER)
+        if (windSource === 'POWER') {
+          windFrames = data.series.map(s => ({
+          timestamp: s.timestamp,
+          u: Number(s.u) || 0,
+          v: Number(s.v) || 0
+          }));
+          initParticles(700);
+          if (windPlaying) windPlay(); else { windPause(); drawParticles({ u: Number(last.u)||0, v: Number(last.v)||0 }); }
+        }
+      } catch (e) {
+        console.error('Viento error:', e);
+      }
+    }
+
+    async function actualizarVientoM2() {
+      windM2Layer.clearLayers();
+      if (!map.hasLayer(windM2Layer)) return;
+
+      const center = map.getCenter();
+      const lat = center.lat.toFixed(4);
+      const lon = center.lng.toFixed(4);
+
+      try {
+        const res = await fetch(`${API_BASE}/wind/merra2?lat=${lat}&lon=${lon}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!data?.series?.length) return;
+
+        const last = data.series[data.series.length - 1];
+        const speed = Number(last.ws || Math.hypot(last.u, last.v));
+        const dir = Number(last.wd || 0);
+        const speedTxt = speed.toFixed(1);
+
+        const lengthKm = Math.min(50, Math.max(10, speed * 5));
+        const rad = (Math.PI / 180) * (90 - dir);
+        const dx = (lengthKm / 111) * Math.cos(rad);
+        const dy = (lengthKm / 111) * Math.sin(rad);
+
+        const start = [center.lat, center.lng];
+        const end = [center.lat + dy, center.lng + dx];
+
+        const line = L.polyline([start, end], { color: '#22c55e', weight: 3, opacity: 0.8 });
+        const head = L.circleMarker(end, { radius: 4, color: '#22c55e', fillColor: '#22c55e', fillOpacity: 1 });
+        const label = L.marker(end, {
+          icon: L.divIcon({ className: '', html: `<div style=\"color:#22c55e;font-weight:700;\">${speedTxt} m/s</div>` })
+        });
+
+        windM2Layer.addLayer(line);
+        windM2Layer.addLayer(head);
+        windM2Layer.addLayer(label);
+
+        // preparar frames para animación (MERRA-2)
+        if (windSource === 'MERRA2') {
+          windFrames = data.series.map((s, idx) => ({
+            timestamp: `t${idx}`,
+            u: Number(s.u) || 0,
+            v: Number(s.v) || 0
+          }));
+          initParticles(700);
+          if (windPlaying) windPlay(); else { windPause(); drawParticles({ u: Number(last.u)||0, v: Number(last.v)||0 }); }
+        }
+      } catch (e) {
+        console.error('Viento MERRA-2 error:', e);
+      }
+    }
+    
+    function crearPopupContent(ev, color) {
+      const nivelTexto = ev.nivelConfianza ? 
+        ev.nivelConfianza.replace('_', ' ').toUpperCase() : 'DESCONOCIDO';
+      const severidadHTML = ev.severidad ? 
+        `<span class=\"severidad-badge severidad-${ev.severidad}\">${ev.severidad.replace('_', ' ')}</span>` : '';
+      const latNum = Number(ev.lat);
+      const lngNum = Number(ev.lng);
+      
+      return `
+        <div style=\"min-width: 270px;\">
+          <div class=\"popup-title\">🔥 ${ev.categoria || 'Foco de calor'}</div>
+          ${severidadHTML}
+          <div class=\"popup-divider\"></div>
+          
+          <div class=\"popup-row\">
+            <span class=\"popup-label\">📅 Fecha:</span>
+            <span class=\"popup-value\">${ev.fechaLocal || '—'}</span>
+          </div>
+          
+          <div class=\"popup-row\">
+            <span class=\"popup-label\">⏰ Hora local:</span>
+            <span class=\"popup-value\">${ev.horaLocal || '—'}</span>
+          </div>
+          
+          <div class=\"popup-row\">
+            <span class=\"popup-label\">📊 Confianza:</span>
+            <span class=\"popup-value\" style=\"color: ${color};\">
+              ${ev.confianza}% (${nivelTexto})
+            </span>
+          </div>
+          
+          <div class=\"popup-row\">
+            <span class=\"popup-label\">🔥 Potencia (FRP):</span>
+            <span class=\"popup-value\">${ev.frp ? ev.frp.toFixed(1) + ' MW' : 'N/A'}</span>
+          </div>
+          
+          <div class=\"popup-row\">
+            <span class=\"popup-label\">🌡️ Temperatura:</span>
+            <span class=\"popup-value\">${ev.temperaturaEstimada || 'N/A'}</span>
+          </div>
+          
+          <div class=\"popup-row\">
+            <span class=\"popup-label\">📐 Área pixel:</span>
+            <span class=\"popup-value\">${ev.pixelArea} km²</span>
+          </div>
+          
+          <div class=\"popup-row\">
+            <span class=\"popup-label\">🛰️ Satélite:</span>
+            <span class=\"popup-value\">${ev.source || ev.satellite || '—'}</span>
+          </div>
+          
+          <div class=\"popup-row\">
+            <span class=\"popup-label\">📍 Coordenadas:</span>
+            <span class=\"popup-value\">${!isNaN(latNum) && !isNaN(lngNum) ? `${latNum.toFixed(4)}, ${lngNum.toFixed(4)}` : '—'}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    const slider = document.getElementById("timeSlider");
+    const timeline = document.getElementById("timeline");
+
+    slider.addEventListener("input", () => {
+      const horas = parseInt(slider.value, 10);
+      
+      if (horas === 24) {
+        timeline.textContent = 'Todas';
+        dibujarIncendios(incendiosCargados);
+        actualizarEstado(`${incendiosCargados.length} focos`);
+        return;
+      }
+      
+      const horaFormateada = `${horas.toString().padStart(2, '0')}:00`;
+      timeline.textContent = horaFormateada;
+
+      const filtrados = incendiosCargados.filter(ev => {
+        if (!ev.horaLocal) return false;
+        const horaEvento = parseInt(ev.horaLocal.split(':')[0]);
+        return horaEvento === horas;
+      });
+
+      dibujarIncendios(filtrados);
+      actualizarEstado(`${filtrados.length} focos a las ${horaFormateada}`);
+    });
+
+    document.getElementById("days").addEventListener("change", cargarIncendios);
+    document.getElementById("source").addEventListener("change", cargarIncendios);
+    document.getElementById("region").addEventListener("change", cargarIncendios);
+
+    const legend = L.control({ position: 'bottomright' });
+    legend.onAdd = function () {
+      const div = L.DomUtil.create('div', 'legend');
+      div.innerHTML = `
+        <h4>🔥 Nivel de Confianza</h4>
+        <div class="legend-item">
+          <i style="background:#7f1d1d"></i>
+          <span>Muy Alta (≥85%)</span>
+        </div>
+        <div class="legend-item">
+          <i style="background:#dc2626"></i>
+          <span>Alta (70-84%)</span>
+        </div>
+        <div class="legend-item">
+          <i style="background:#f59e0b"></i>
+          <span>Media (50-69%)</span>
+        </div>
+        <div class="legend-item">
+          <i style="background:#fbbf24"></i>
+          <span>Baja (30-49%)</span>
+        </div>
+        <div class="legend-item">
+          <i style="background:#84cc16"></i>
+          <span>Muy Baja (<30%)</span>
+        </div>
+      `;
+      return div;
+    };
+    legend.addTo(map);
+
+    const statsPanel = L.control({ position: 'topleft' });
+    statsPanel.onAdd = function () {
+      const div = L.DomUtil.create('div', 'info-panel');
+      div.id = 'statsPanel';
+      div.style.display = 'none';
+      div.innerHTML = `
+        <h4>📊 Estadísticas</h4>
+        <div id="stats-content">
+          <div class="stat-row">
+            <span class="stat-label">Total focos:</span>
+            <span class="stat-value" id="stat-total">0</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Alta confianza:</span>
+            <span class="stat-value high" id="stat-alta">0</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Media confianza:</span>
+            <span class="stat-value medium" id="stat-media">0</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Baja confianza:</span>
+            <span class="stat-value low" id="stat-baja">0</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Promedio FRP:</span>
+            <span class="stat-value" id="stat-frp">0 MW</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">FRP máximo:</span>
+            <span class="stat-value high" id="stat-max-frp">0 MW</span>
+          </div>
+          <div id="tendencia-container"></div>
+        </div>
+      `;
+      return div;
+    };
+    statsPanel.addTo(map);
+    
+    function toggleStats() {
+      const panel = document.getElementById('statsPanel');
+      const btn = document.getElementById('statsBtn');
+      
+      if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        btn.textContent = '📊 Ocultar';
+        actualizarPanelEstadisticas();
+      } else {
+        panel.style.display = 'none';
+        btn.textContent = '📊 Stats';
+      }
+    }
+    
+    function actualizarPanelEstadisticas() {
+      if (!estadisticasGlobales || estadisticasGlobales.total === 0) return;
+      
+      const stats = estadisticasGlobales;
+      
+      document.getElementById('stat-total').textContent = stats.total || 0;
+      
+      const alta = (stats.porConfianza?.high || 0) + (stats.porConfianza?.very_high || 0);
+      const media = stats.porConfianza?.medium || 0;
+      const baja = (stats.porConfianza?.low || 0) + (stats.porConfianza?.nominal || 0);
+      
+      document.getElementById('stat-alta').textContent = alta;
+      document.getElementById('stat-media').textContent = media;
+      document.getElementById('stat-baja').textContent = baja;
+      document.getElementById('stat-frp').textContent = (stats.promedioFRP || 0) + ' MW';
+      document.getElementById('stat-max-frp').textContent = (stats.maxFRP || 0) + ' MW';
+      
+      const tendenciaContainer = document.getElementById('tendencia-container');
+      if (stats.tendencia) {
+        const t = stats.tendencia;
+        const clase = t.direccion === 'aumentando' ? 'aumentando' : 
+                      t.direccion === 'disminuyendo' ? 'disminuyendo' : '';
+        
+        tendenciaContainer.innerHTML = `
+          <div class="tendencia ${clase}">
+            <strong>Tendencia 24h:</strong> ${t.direccion}<br>
+            Cambio: ${t.cambioPorc > 0 ? '+' : ''}${t.cambioPorc}%<br>
+            Actual: ${t.ultimas24h} | Anterior: ${t.anteriores24h}
+          </div>
+        `;
+      }
+    }
+    
+    function exportarDatos() {
+      if (!incendiosCargados || incendiosCargados.length === 0) {
+        mostrarNotificacion('No hay datos para exportar', 'warning');
+        return;
+      }
+      
+      const headers = [
+        'Latitud', 'Longitud', 'Fecha Local', 'Hora Local', 
+        'Confianza (%)', 'Nivel Confianza', 'Categoría', 'Severidad',
+        'FRP (MW)', 'Temperatura (°C)', 'Área Pixel (km²)', 'Satélite'
+      ];
+      
+      const rows = incendiosCargados.map(ev => [
+        ev.lat,
+        ev.lng,
+        ev.fechaLocal,
+        ev.horaLocal,
+        ev.confianza,
+        ev.nivelConfianza,
+        ev.categoria,
+        ev.severidad || '',
+        ev.frp || 0,
+        ev.temperaturaEstimada,
+        ev.pixelArea,
+        ev.source || ev.satellite
+      ]);
+      
+      let csv = headers.join(',') + '\n';
+      rows.forEach(row => {
+        csv += row.map(val => `"${val}"`).join(',') + '\n';
+      });
+      
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      const fecha = new Date().toISOString().split('T')[0];
+      link.setAttribute('href', url);
+      link.setAttribute('download', `incendios_bolivia_${fecha}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      mostrarNotificacion(`${incendiosCargados.length} registros exportados`, 'success');
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        cargarIncendios();
+      } else if (e.key === 's' || e.key === 'S') {
+        e.preventDefault();
+        toggleStats();
+      } else if (e.key === 'e' || e.key === 'E') {
+        e.preventDefault();
+        exportarDatos();
+      }
+    });
+
+    L.control.scale({ 
+      position: 'bottomleft',
+      imperial: false,
+      metric: true
+    }).addTo(map);
+
+    // Redibujar viento al mover/zoom o al cambiar overlays
+    map.on('moveend zoomend overlayadd overlayremove', () => {
+      actualizarViento();
+      actualizarVientoM2();
+    });
+
+    window.addEventListener('load', () => {
+      console.log('Aplicación iniciada');
+      cargarIncendios();
+      actualizarViento();
+      actualizarVientoM2();
+      
+      fetch(`${API_BASE}/health`)
+        .then(r => r.json())
+        .then(data => {
+          console.log('Health check:', data);
+          if (data.apiKey !== 'configurada') {
+            mostrarNotificacion('API Key no configurada', 'warning');
+          }
+        })
+        .catch(err => console.error('Health check failed:', err));
+    });
+    
+    setInterval(() => {
+      console.log('Auto-refresh');
+      cargarIncendios();
+      actualizarViento();
+      actualizarVientoM2();
+    }, 5 * 60 * 1000);
+    
+    let ultimoConteo = 0;
+    setInterval(() => {
+      if (incendiosCargados.length > ultimoConteo && ultimoConteo > 0) {
+        const nuevos = incendiosCargados.length - ultimoConteo;
+        mostrarNotificacion(`${nuevos} nuevos focos detectados`, 'warning');
+      }
+      ultimoConteo = incendiosCargados.length;
+    }, 60000);
+  </script>
+</body>
+</html>

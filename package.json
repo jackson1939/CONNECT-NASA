@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "netcdfjs": "^3.0.0"
+  },
+  "scripts": {
+    "setup": "npm --prefix CONTROLLERFINALFINAL/backend install",
+    "start": "npm --prefix CONTROLLERFINALFINAL/backend run start",
+    "dev": "npm --prefix CONTROLLERFINALFINAL/backend run dev",
+    "start:all": "npm run setup && npm run start",
+    "dev:all": "npm run setup && npm run dev"
+  }
+}
